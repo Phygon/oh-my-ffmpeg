@@ -6,18 +6,115 @@ FROM debian:${DEBIAN_VERSION}-slim AS build
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# libfdk-aac is in Debian's contrib component, so enable contrib and non-free.
-RUN sed -i 's/^Components: main$/Components: main contrib non-free non-free-firmware/' /etc/apt/sources.list.d/debian.sources \
-    && apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates wget xz-utils build-essential cmake pkg-config nasm yasm \
         autoconf automake libtool meson ninja-build \
         tclsh zlib1g-dev libssl-dev libfreetype6-dev libfontconfig-dev libharfbuzz-dev \
-        libopus-dev libvpx-dev libx264-dev libx265-dev libnuma-dev \
-        libsvtav1enc-dev libaom-dev libfdk-aac-dev \
+        libnuma-dev \
         libasound2-dev libpulse-dev libjack-jackd2-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
+
+# ---- x264: static library (H.264 encoder) ----
+ARG X264_REF=27d83708
+RUN wget -q https://code.videolan.org/videolan/x264/-/archive/${X264_REF}/x264-${X264_REF}.tar.bz2 -O x264.tar.bz2 \
+    && tar -xjf x264.tar.bz2 \
+    && mv x264-${X264_REF} /src/x264 \
+    && rm x264.tar.bz2 \
+    && cd /src/x264 \
+    && ./configure --prefix=/usr/local --enable-static --disable-shared --disable-cli \
+    && make -j"$(nproc)" \
+    && make install \
+    && cd /src && rm -rf /src/x264
+
+# ---- x265: static library (HEVC encoder) ----
+ARG X265_VERSION=4.2
+RUN wget -q https://get.videolan.org/x265/x265_${X265_VERSION}.tar.gz -O x265.tar.gz \
+    && tar -xzf x265.tar.gz \
+    && mv x265_${X265_VERSION} /src/x265 \
+    && rm x265.tar.gz \
+    && cmake -S /src/x265/source -B /src/x265-build \
+        -DCMAKE_INSTALL_PREFIX=/usr/local \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DENABLE_SHARED=OFF \
+        -DENABLE_CLI=OFF \
+    && cmake --build /src/x265-build -j"$(nproc)" \
+    && cmake --install /src/x265-build \
+    && rm -rf /src/x265-build /src/x265
+
+# ---- SVT-AV1: static library (AV1 encoder) ----
+ARG SVTAV1_VERSION=4.2.0
+RUN wget -q https://gitlab.com/AOMediaCodec/SVT-AV1/-/archive/v${SVTAV1_VERSION}/SVT-AV1-v${SVTAV1_VERSION}.tar.gz -O svtav1.tar.gz \
+    && tar -xzf svtav1.tar.gz \
+    && mv SVT-AV1-v${SVTAV1_VERSION} /src/svt-av1 \
+    && rm svtav1.tar.gz \
+    && cmake -S /src/svt-av1 -B /src/svt-av1-build \
+        -DCMAKE_INSTALL_PREFIX=/usr/local \
+        -DCMAKE_INSTALL_LIBDIR=lib \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_SHARED_LIBS=OFF \
+        -DBUILD_APPS=OFF \
+        -DBUILD_TESTING=OFF \
+    && cmake --build /src/svt-av1-build -j"$(nproc)" \
+    && cmake --install /src/svt-av1-build \
+    && rm -rf /src/svt-av1-build /src/svt-av1
+
+# ---- libaom: static library (AV1 reference codec) ----
+ARG LIBAOM_VERSION=3.15.1
+RUN wget -q https://storage.googleapis.com/aom-releases/libaom-${LIBAOM_VERSION}.tar.gz -O libaom.tar.gz \
+    && tar -xzf libaom.tar.gz \
+    && mv libaom-${LIBAOM_VERSION} /src/libaom \
+    && rm libaom.tar.gz \
+    && cmake -S /src/libaom -B /src/libaom-build \
+        -DCMAKE_INSTALL_PREFIX=/usr/local \
+        -DCMAKE_INSTALL_LIBDIR=lib \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_SHARED_LIBS=0 \
+        -DENABLE_TESTS=0 \
+        -DENABLE_EXAMPLES=0 \
+        -DENABLE_TOOLS=0 \
+        -DENABLE_DOCS=0 \
+    && cmake --build /src/libaom-build -j"$(nproc)" \
+    && cmake --install /src/libaom-build \
+    && rm -rf /src/libaom-build /src/libaom
+
+# ---- libvpx: static library (VP8/VP9) ----
+ARG LIBVPX_VERSION=1.17.0
+RUN wget -q https://github.com/webmproject/libvpx/archive/refs/tags/v${LIBVPX_VERSION}.tar.gz -O libvpx.tar.gz \
+    && tar -xzf libvpx.tar.gz \
+    && mv libvpx-${LIBVPX_VERSION} /src/libvpx \
+    && rm libvpx.tar.gz \
+    && cd /src/libvpx \
+    && ./configure --prefix=/usr/local --enable-vp8 --enable-vp9 --disable-examples --disable-tools --disable-docs --disable-unit-tests \
+    && make -j"$(nproc)" \
+    && make install \
+    && cd /src && rm -rf /src/libvpx
+
+# ---- fdk-AAC: static library (AAC encoder, non-redistributable) ----
+ARG FDKAAC_VERSION=2.0.3
+RUN wget -q https://github.com/mstorsjo/fdk-aac/archive/refs/tags/v${FDKAAC_VERSION}.tar.gz -O fdk-aac.tar.gz \
+    && tar -xzf fdk-aac.tar.gz \
+    && mv fdk-aac-${FDKAAC_VERSION} /src/fdk-aac \
+    && rm fdk-aac.tar.gz \
+    && cd /src/fdk-aac \
+    && ./autogen.sh \
+    && ./configure --prefix=/usr/local --disable-shared --enable-static \
+    && make -j"$(nproc)" \
+    && make install \
+    && cd /src && rm -rf /src/fdk-aac
+
+# ---- Opus: static library (audio codec) ----
+ARG OPUS_VERSION=1.6.1
+RUN wget -q https://downloads.xiph.org/releases/opus/opus-${OPUS_VERSION}.tar.gz -O opus.tar.gz \
+    && tar -xzf opus.tar.gz \
+    && mv opus-${OPUS_VERSION} /src/opus \
+    && rm opus.tar.gz \
+    && cd /src/opus \
+    && ./configure --prefix=/usr/local --disable-shared --enable-static --disable-doc --disable-extra-programs \
+    && make -j"$(nproc)" \
+    && make install \
+    && cd /src && rm -rf /src/opus
 
 # ---- librist: static library (RIST protocol) ----
 ARG LIBRIST_VERSION=0.2.20
@@ -133,11 +230,8 @@ COPY --from=build /out/ /
 FROM debian:${DEBIAN_VERSION}-slim AS runtime
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN sed -i 's/^Components: main$/Components: main contrib non-free non-free-firmware/' /etc/apt/sources.list.d/debian.sources \
-    && apt-get update && apt-get install -y --no-install-recommends \
-        ca-certificates libssl3 libstdc++6 libfreetype6 libfontconfig1 libharfbuzz0b \
-        libopus0 libvpx7 libx264-164 libx265-199 libnuma1 \
-        libsvtav1enc1 libaom3 libfdk-aac2 \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates libssl3 libstdc++6 libfreetype6 libfontconfig1 libharfbuzz0b libnuma1 \
         libasound2 libpulse0 libjack-jackd2-0 \
     && rm -rf /var/lib/apt/lists/*
 

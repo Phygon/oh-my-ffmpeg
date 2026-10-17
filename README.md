@@ -2,7 +2,7 @@
 
 *Build your own FFmpeg*
 
-FFmpeg 9.0.2 and libsrt 1.5.7 (static), built from source on Debian 12 for Docker and Podman.
+FFmpeg 9.0.2 and its codec and protocol libraries (static), built from source on Debian 12 for Docker and Podman.
 
 Extra codecs, devices and protocols included in the build:
 - **Audio devices:** ALSA, PulseAudio, JACK
@@ -43,6 +43,13 @@ These are build arguments with defaults in the Dockerfile. Override one with `--
 | `SRT_VERSION` | `1.5.7` | libsrt release to build |
 | `ZIMG_VERSION` | `3.0.6` | zimg release to build (zscale filter) |
 | `LIBRIST_VERSION` | `0.2.20` | librist release to build (RIST protocol) |
+| `X264_REF` | `27d83708` | x264 commit to build (pinned) |
+| `X265_VERSION` | `4.2` | x265 release to build |
+| `SVTAV1_VERSION` | `4.2.0` | SVT-AV1 release to build |
+| `LIBAOM_VERSION` | `3.15.1` | libaom release to build |
+| `LIBVPX_VERSION` | `1.17.0` | libvpx release to build |
+| `FDKAAC_VERSION` | `2.0.3` | fdk-AAC release to build |
+| `OPUS_VERSION` | `1.6.1` | Opus release to build |
 | `DECKLINK_SDK_VERSION` | *(empty)* | Set to build with DeckLink support, e.g. `12.2.2` (uses `blackmagic_<version>/include/`) |
 | `CHECK_DEVICES` | `alsa pulse jack` | Devices that must be present (add `decklink` for DeckLink builds) |
 | `CHECK_PROTOCOLS` | `srt dtls rist` | Protocols that must be present |

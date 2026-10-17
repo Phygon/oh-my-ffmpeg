@@ -1,0 +1,6 @@
+# dist folder
+dist
+
+# we cannot add blackmagic sdk to the git
+blackmagic*
+!blackmagic_none

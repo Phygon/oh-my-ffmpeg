@@ -1,0 +1,6 @@
+# Build outputs and local files that the image does not need
+dist/
+.git
+.gitignore
+*.bak
+README.md

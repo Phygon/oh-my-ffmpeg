@@ -29,10 +29,10 @@ RUN wget -q https://code.videolan.org/videolan/x264/-/archive/${X264_REF}/x264-$
     && cd /src && rm -rf /src/x264
 
 # ---- x265: static library (HEVC encoder) ----
-ARG X265_VERSION=4.2
-RUN wget -q https://get.videolan.org/x265/x265_${X265_VERSION}.tar.gz -O x265.tar.gz \
+ARG X265_VERSION=4.3
+RUN wget -q https://github.com/Multicorewareinc/x265/archive/refs/tags/${X265_VERSION}.tar.gz -O x265.tar.gz \
     && tar -xzf x265.tar.gz \
-    && mv x265_${X265_VERSION} /src/x265 \
+    && mv x265-${X265_VERSION} /src/x265 \
     && rm x265.tar.gz \
     && cmake -S /src/x265/source -B /src/x265-build \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
@@ -44,7 +44,7 @@ RUN wget -q https://get.videolan.org/x265/x265_${X265_VERSION}.tar.gz -O x265.ta
     && rm -rf /src/x265-build /src/x265
 
 # ---- SVT-AV1: static library (AV1 encoder) ----
-ARG SVTAV1_VERSION=4.2.0
+ARG SVTAV1_VERSION=4.3.0
 RUN wget -q https://gitlab.com/AOMediaCodec/SVT-AV1/-/archive/v${SVTAV1_VERSION}/SVT-AV1-v${SVTAV1_VERSION}.tar.gz -O svtav1.tar.gz \
     && tar -xzf svtav1.tar.gz \
     && mv SVT-AV1-v${SVTAV1_VERSION} /src/svt-av1 \
@@ -61,7 +61,7 @@ RUN wget -q https://gitlab.com/AOMediaCodec/SVT-AV1/-/archive/v${SVTAV1_VERSION}
     && rm -rf /src/svt-av1-build /src/svt-av1
 
 # ---- libaom: static library (AV1 reference codec) ----
-ARG LIBAOM_VERSION=3.15.1
+ARG LIBAOM_VERSION=3.15.3
 RUN wget -q https://storage.googleapis.com/aom-releases/libaom-${LIBAOM_VERSION}.tar.gz -O libaom.tar.gz \
     && tar -xzf libaom.tar.gz \
     && mv libaom-${LIBAOM_VERSION} /src/libaom \
@@ -92,7 +92,7 @@ RUN wget -q https://github.com/webmproject/libvpx/archive/refs/tags/v${LIBVPX_VE
     && cd /src && rm -rf /src/libvpx
 
 # ---- fdk-AAC: static library (AAC encoder, non-redistributable) ----
-ARG FDKAAC_VERSION=2.0.3
+ARG FDKAAC_VERSION=3.0.0
 RUN wget -q https://github.com/mstorsjo/fdk-aac/archive/refs/tags/v${FDKAAC_VERSION}.tar.gz -O fdk-aac.tar.gz \
     && tar -xzf fdk-aac.tar.gz \
     && mv fdk-aac-${FDKAAC_VERSION} /src/fdk-aac \
@@ -162,7 +162,7 @@ ARG DECKLINK_SDK_VERSION=
 COPY blackmagic_${DECKLINK_SDK_VERSION:-none}/include/ /usr/local/include/
 
 # ---- FFmpeg ----
-ARG FFMPEG_VERSION=9.0.2 FFMPEG_EXTRA_VERSION=1~custom
+ARG FFMPEG_VERSION=9.1 FFMPEG_EXTRA_VERSION=custom1
 RUN wget -q https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz \
     && tar -xJf ffmpeg-${FFMPEG_VERSION}.tar.xz \
     && mv ffmpeg-${FFMPEG_VERSION} /src/ffmpeg \
@@ -183,6 +183,7 @@ RUN ./configure \
         --enable-gpl \
         --enable-libaom \
         --enable-libfdk-aac \
+        --enable-libfdk-xhe-aac \
         --enable-libfontconfig \
         --enable-libfreetype \
         --enable-libharfbuzz \
@@ -205,7 +206,7 @@ RUN ./configure \
     && make clean
 
 # ---- Verify: device, protocol, muxer and encoder support present; ffmpeg and ffprobe do not link FFmpeg libraries dynamically ----
-ARG CHECK_DEVICES="alsa pulse jack" CHECK_PROTOCOLS="srt dtls rist" CHECK_MUXERS="whip" CHECK_ENCODERS="libx264 libx265 libsvtav1 libaom-av1 libfdk_aac libopus libvpx-vp9"
+ARG CHECK_DEVICES="alsa pulse jack" CHECK_PROTOCOLS="srt dtls rist" CHECK_MUXERS="whip" CHECK_ENCODERS="libx264 libx265 libsvtav1 libaom-av1 libfdk_aac libfdk_xhe_aac libopus libvpx-vp9"
 RUN for d in $CHECK_DEVICES; do \
         /opt/ffmpeg/bin/ffmpeg -hide_banner -devices | grep -qw "$d" || { echo "missing device: $d"; exit 1; }; \
     done \

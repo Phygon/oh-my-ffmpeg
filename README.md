@@ -11,12 +11,15 @@ Extra codecs, devices and protocols included in the build:
 - **Audio codecs:** fdk-AAC (AAC-LC, HE-AAC and xHE-AAC), Opus
 - **Filters:** zscale (libzimg) for high-quality scaling and colour conversion
 - **Protocols:** SRT, RIST
+- **Hardware acceleration:** Vulkan (needs a Vulkan-capable GPU and driver on the host at runtime)
 
 The build uses `--enable-nonfree` for fdk-AAC and xHE-AAC. Binaries built this way cannot be redistributed.
 
 ## Quickstart (Docker)
 
 The Blackmagic DeckLink SDK is optional. To build with it, see Prerequisites before building.
+
+The examples use `docker`. With Podman, replace `docker` with `podman`.
 
 ```bash
 docker build -t ffmpeg9 .
@@ -31,6 +34,12 @@ The `dist` build writes `ffmpeg` and `ffprobe` to `./dist/bin/`.
 - Podman 4.x or later, or Docker.
 - Optional, for DeckLink support: the Blackmagic DeckLink SDK headers in a folder next to the Dockerfile, for example `blackmagic_12.2.2/include/`. Pass the version as a build argument, for example `--build-arg DECKLINK_SDK_VERSION=12.2.2 --build-arg CHECK_DEVICES="alsa pulse jack decklink"`.
 - On the host, to use DeckLink hardware: the Blackmagic Desktop Video driver. It is not needed to build.
+- On the host, to use Vulkan: a GPU driver that provides Vulkan, and the Vulkan loader (`libvulkan1` on Debian). It is not needed to build.
+
+Example DeckLink build:
+```bash
+docker build --build-arg DECKLINK_SDK_VERSION=12.2.2 --build-arg CHECK_DEVICES="alsa pulse jack decklink" --build-arg FFMPEG_EXTRA_VERSION=custom2 --target dist --output type=local,dest=./dist .
+```
 
 ## Build settings
 
@@ -50,41 +59,34 @@ These are build arguments with defaults in the Dockerfile. Override one with `--
 | `LIBVPX_VERSION` | `1.17.0` | libvpx release to build |
 | `FDKAAC_VERSION` | `3.0.0` | fdk-AAC release to build (includes the xHE-AAC library) |
 | `OPUS_VERSION` | `1.6.1` | Opus release to build |
+| `VULKAN_HEADERS_VERSION` | `1.4.369` | Vulkan-Headers release to build (Vulkan support) |
+| `SPIRV_HEADERS_VERSION` | `1.202609.0` | SPIRV-Headers release to build (Vulkan support) |
+| `SHADERC_VERSION` | `2026.4` | shaderc release to build (`glslc` for Vulkan filters) |
 | `DECKLINK_SDK_VERSION` | *(empty)* | Set to build with DeckLink support, e.g. `12.2.2` (uses `blackmagic_<version>/include/`) |
 | `CHECK_DEVICES` | `alsa pulse jack` | Devices that must be present (add `decklink` for DeckLink builds) |
 | `CHECK_PROTOCOLS` | `srt dtls rist` | Protocols that must be present |
 | `CHECK_MUXERS` | `whip` | Muxers that must be present |
+| `CHECK_HWACCELS` | `vulkan` | Hardware acceleration methods that must be present |
 | `CHECK_ENCODERS` | `libx264 libx265 libsvtav1 libaom-av1 libfdk_aac libfdk_xhe_aac libopus libvpx-vp9` | Encoders that must be present |
+| `CHECK_FILTERS` | `scale_vulkan overlay_vulkan avgblur_vulkan gblur_vulkan` | Filters that must be present |
 
 Example:
 ```bash
-podman build --build-arg FFMPEG_EXTRA_VERSION=custom2 -t ffmpeg9 .
+docker build --build-arg FFMPEG_EXTRA_VERSION=custom2 -t ffmpeg9 .
 ```
 
 ## 1. Build the runtime image
 
-Docker:
 ```bash
 docker build -t ffmpeg9 .
-```
-
-Podman:
-```bash
-podman build -t ffmpeg9 .
 ```
 
 ## 2. Build the dist folder
 
 Exports only `ffmpeg` and `ffprobe` to `./dist/bin` on the host.
 
-Docker:
 ```bash
 docker build --target dist --output type=local,dest=./dist .
-```
-
-Podman:
-```bash
-podman build --target dist --output type=local,dest=./dist .
 ```
 
 Run the host binaries:
@@ -125,6 +127,6 @@ The `:Z` suffix is needed on SELinux systems (Fedora, RHEL) so Podman can read a
 
 Rebuilds leave old images behind as dangling `<none>` images. Remove them with:
 ```bash
-podman image prune
+docker image prune
 ```
 Add `-a` to remove all images not used by a container. This also removes `ffmpeg9` if no container uses it, and the next build will recompile FFmpeg.

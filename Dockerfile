@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1
 ARG DEBIAN_VERSION=bookworm
 
-# ---------- Dependency stage: static libraries and FFmpeg source ----------
-FROM debian:${DEBIAN_VERSION}-slim AS deps
+# ---------- Base stage: build tools, apt packages and the fetch helper ----------
+FROM debian:${DEBIAN_VERSION}-slim AS base
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -22,6 +22,7 @@ RUN chmod 755 /usr/local/bin/fetch-src
 WORKDIR /src
 
 # ---- x264: static library (H.264 encoder) ----
+FROM base AS x264
 ARG X264_REF=27d83708
 RUN fetch-src https://code.videolan.org/videolan/x264/-/archive/${X264_REF}/x264-${X264_REF}.tar.bz2 x264.tar.bz2 /src/x264 \
     && cd /src/x264 \
@@ -31,6 +32,7 @@ RUN fetch-src https://code.videolan.org/videolan/x264/-/archive/${X264_REF}/x264
     && cd /src && rm -rf /src/x264
 
 # ---- x265: static library (HEVC encoder) ----
+FROM base AS x265
 ARG X265_VERSION=4.3
 RUN fetch-src https://github.com/Multicorewareinc/x265/archive/refs/tags/${X265_VERSION}.tar.gz x265.tar.gz /src/x265 \
     && cmake -S /src/x265/source -B /src/x265-build \
@@ -43,6 +45,7 @@ RUN fetch-src https://github.com/Multicorewareinc/x265/archive/refs/tags/${X265_
     && rm -rf /src/x265-build /src/x265
 
 # ---- SVT-AV1: static library (AV1 encoder) ----
+FROM base AS svtav1
 ARG SVTAV1_VERSION=4.3.0
 RUN fetch-src https://gitlab.com/AOMediaCodec/SVT-AV1/-/archive/v${SVTAV1_VERSION}/SVT-AV1-v${SVTAV1_VERSION}.tar.gz svtav1.tar.gz /src/svt-av1 \
     && cmake -S /src/svt-av1 -B /src/svt-av1-build \
@@ -57,6 +60,7 @@ RUN fetch-src https://gitlab.com/AOMediaCodec/SVT-AV1/-/archive/v${SVTAV1_VERSIO
     && rm -rf /src/svt-av1-build /src/svt-av1
 
 # ---- libaom: static library (AV1 reference codec) ----
+FROM base AS libaom
 ARG LIBAOM_VERSION=3.15.3
 RUN fetch-src https://storage.googleapis.com/aom-releases/libaom-${LIBAOM_VERSION}.tar.gz libaom.tar.gz /src/libaom \
     && cmake -S /src/libaom -B /src/libaom-build \
@@ -73,6 +77,7 @@ RUN fetch-src https://storage.googleapis.com/aom-releases/libaom-${LIBAOM_VERSIO
     && rm -rf /src/libaom-build /src/libaom
 
 # ---- libvpx: static library (VP8/VP9) ----
+FROM base AS libvpx
 ARG LIBVPX_VERSION=1.17.0
 RUN fetch-src https://github.com/webmproject/libvpx/archive/refs/tags/v${LIBVPX_VERSION}.tar.gz libvpx.tar.gz /src/libvpx \
     && cd /src/libvpx \
@@ -82,6 +87,7 @@ RUN fetch-src https://github.com/webmproject/libvpx/archive/refs/tags/v${LIBVPX_
     && cd /src && rm -rf /src/libvpx
 
 # ---- fdk-AAC: static library (AAC encoder, non-redistributable) ----
+FROM base AS fdkaac
 ARG FDKAAC_VERSION=3.0.0
 RUN fetch-src https://github.com/mstorsjo/fdk-aac/archive/refs/tags/v${FDKAAC_VERSION}.tar.gz fdk-aac.tar.gz /src/fdk-aac \
     && cd /src/fdk-aac \
@@ -92,6 +98,7 @@ RUN fetch-src https://github.com/mstorsjo/fdk-aac/archive/refs/tags/v${FDKAAC_VE
     && cd /src && rm -rf /src/fdk-aac
 
 # ---- Opus: static library (audio codec) ----
+FROM base AS opus
 ARG OPUS_VERSION=1.6.1
 RUN fetch-src https://downloads.xiph.org/releases/opus/opus-${OPUS_VERSION}.tar.gz opus.tar.gz /src/opus \
     && cd /src/opus \
@@ -101,6 +108,7 @@ RUN fetch-src https://downloads.xiph.org/releases/opus/opus-${OPUS_VERSION}.tar.
     && cd /src && rm -rf /src/opus
 
 # ---- librist: static library (RIST protocol) ----
+FROM base AS librist
 ARG LIBRIST_VERSION=0.2.20
 RUN fetch-src https://code.videolan.org/rist/librist/-/archive/v${LIBRIST_VERSION}/librist-v${LIBRIST_VERSION}.tar.gz librist.tar.gz /src/librist \
     && meson setup /src/librist-build /src/librist --prefix=/usr/local --libdir=lib --default-library=static \
@@ -109,6 +117,7 @@ RUN fetch-src https://code.videolan.org/rist/librist/-/archive/v${LIBRIST_VERSIO
     && rm -rf /src/librist-build
 
 # ---- libsrt: static library (SRT protocol) ----
+FROM base AS srt
 ARG SRT_VERSION=1.5.7
 RUN fetch-src https://github.com/Haivision/srt/archive/refs/tags/v${SRT_VERSION}.tar.gz srt.tar.gz /src/srt \
     && cmake -S /src/srt -B /src/srt-build \
@@ -122,6 +131,7 @@ RUN fetch-src https://github.com/Haivision/srt/archive/refs/tags/v${SRT_VERSION}
     && rm -rf /src/srt-build /src/srt
 
 # ---- zimg: static library (zscale filter) ----
+FROM base AS zimg
 ARG ZIMG_VERSION=3.0.6
 RUN fetch-src https://github.com/sekrit-twc/zimg/archive/refs/tags/release-${ZIMG_VERSION}.tar.gz zimg.tar.gz /src/zimg \
     && cd /src/zimg \
@@ -133,6 +143,7 @@ RUN fetch-src https://github.com/sekrit-twc/zimg/archive/refs/tags/release-${ZIM
 
 # ---- shaderc (glslc): pinned, newer than Debian's (needs the Vulkan 1.4 target env) ----
 # Built from the tagged repo: git-sync-deps fetches the matching glslang and SPIRV-Tools.
+FROM base AS shaderc
 ARG SHADERC_VERSION=2026.4
 RUN git clone --depth 1 --branch v${SHADERC_VERSION} https://github.com/google/shaderc /src/shaderc \
     && cd /src/shaderc && python3 utils/git-sync-deps \
@@ -144,6 +155,7 @@ RUN git clone --depth 1 --branch v${SHADERC_VERSION} https://github.com/google/s
     && rm -rf /src/shaderc /src/shaderc-build
 
 # ---- Vulkan-Headers: pinned, newer than Debian's ----
+FROM base AS vulkan-headers
 ARG VULKAN_HEADERS_VERSION=1.4.369
 RUN fetch-src https://github.com/KhronosGroup/Vulkan-Headers/archive/refs/tags/v${VULKAN_HEADERS_VERSION}.tar.gz vk-headers.tar.gz /src/vulkan-headers \
     && cmake -S /src/vulkan-headers -B /src/vulkan-headers-build -DCMAKE_INSTALL_PREFIX=/usr/local \
@@ -151,21 +163,37 @@ RUN fetch-src https://github.com/KhronosGroup/Vulkan-Headers/archive/refs/tags/v
     && rm -rf /src/vulkan-headers-build /src/vulkan-headers
 
 # ---- SPIRV-Headers: pinned, newer than Debian's (needed by libswscale Vulkan code) ----
+FROM base AS spirv-headers
 ARG SPIRV_HEADERS_VERSION=1.202609.0
 RUN fetch-src https://github.com/KhronosGroup/SPIRV-Headers/archive/refs/tags/v${SPIRV_HEADERS_VERSION}.tar.gz spirv-headers.tar.gz /src/spirv-headers \
     && cmake -S /src/spirv-headers -B /src/spirv-headers-build -DCMAKE_INSTALL_PREFIX=/usr/local \
     && cmake --install /src/spirv-headers-build \
     && rm -rf /src/spirv-headers-build /src/spirv-headers
 
+# ---- Libs: merge every library and header into one prefix ----
+FROM base AS libs
+COPY --from=x264 /usr/local/ /usr/local/
+COPY --from=x265 /usr/local/ /usr/local/
+COPY --from=svtav1 /usr/local/ /usr/local/
+COPY --from=libaom /usr/local/ /usr/local/
+COPY --from=libvpx /usr/local/ /usr/local/
+COPY --from=fdkaac /usr/local/ /usr/local/
+COPY --from=opus /usr/local/ /usr/local/
+COPY --from=librist /usr/local/ /usr/local/
+COPY --from=srt /usr/local/ /usr/local/
+COPY --from=zimg /usr/local/ /usr/local/
+COPY --from=shaderc /usr/local/ /usr/local/
+COPY --from=vulkan-headers /usr/local/ /usr/local/
+COPY --from=spirv-headers /usr/local/ /usr/local/
+
 # ---- FFmpeg source ----
-ARG FFMPEG_VERSION=9.1
+FROM libs AS build
+ARG FFMPEG_VERSION=9.1 FFMPEG_EXTRA_VERSION=custom1 DECKLINK_SDK_VERSION=
 RUN fetch-src https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz ffmpeg.tar.xz /src/ffmpeg
 
 # ---- FFmpeg configure, build, install and verify ----
 # DeckLink headers: bind-mounted at build time only, never in dist/ or the runtime image.
 # An empty DECKLINK_SDK_VERSION mounts the placeholder folder, which has no headers.
-FROM deps AS build
-ARG FFMPEG_EXTRA_VERSION=custom1 DECKLINK_SDK_VERSION=
 WORKDIR /src/ffmpeg
 # --enable-nonfree makes the binaries non-redistributable.
 RUN --mount=type=bind,source=blackmagic_${DECKLINK_SDK_VERSION:-none}/include,target=/opt/decklink \

@@ -45,10 +45,18 @@ docker build --build-arg DECKLINK_SDK_VERSION=12.2.2 --build-arg CHECK_DEVICES="
 
 These are build arguments with defaults in the Dockerfile. Override one with `--build-arg`.
 
+### FFmpeg
+
 | Argument | Default | Purpose |
 | --- | --- | --- |
 | `FFMPEG_VERSION` | `9.1` | FFmpeg release to build |
 | `FFMPEG_EXTRA_VERSION` | `custom1` | Suffix added to the version string |
+| `DECKLINK_SDK_VERSION` | *(empty)* | Set to build with DeckLink support, e.g. `12.2.2` (uses `blackmagic_<version>/include/`) |
+
+### Libraries
+
+| Argument | Default | Purpose |
+| --- | --- | --- |
 | `SRT_VERSION` | `1.5.7` | libsrt release to build |
 | `ZIMG_VERSION` | `3.0.6` | zimg release to build (zscale filter) |
 | `LIBRIST_VERSION` | `0.2.20` | librist release to build (RIST protocol) |
@@ -59,15 +67,24 @@ These are build arguments with defaults in the Dockerfile. Override one with `--
 | `LIBVPX_VERSION` | `1.17.0` | libvpx release to build |
 | `FDKAAC_VERSION` | `3.0.0` | fdk-AAC release to build (includes the xHE-AAC library) |
 | `OPUS_VERSION` | `1.6.1` | Opus release to build |
-| `VULKAN_HEADERS_VERSION` | `1.4.369` | Vulkan-Headers release to build (Vulkan support) |
-| `SPIRV_HEADERS_VERSION` | `1.202609.0` | SPIRV-Headers release to build (Vulkan support) |
+
+### Vulkan
+
+| Argument | Default | Purpose |
+| --- | --- | --- |
+| `VULKAN_HEADERS_VERSION` | `1.4.369` | Vulkan-Headers release to build |
+| `SPIRV_HEADERS_VERSION` | `1.202609.0` | SPIRV-Headers release to build |
 | `SHADERC_VERSION` | `2026.4` | shaderc release to build (`glslc` for Vulkan filters) |
-| `DECKLINK_SDK_VERSION` | *(empty)* | Set to build with DeckLink support, e.g. `12.2.2` (uses `blackmagic_<version>/include/`) |
+
+### Build checks
+
+| Argument | Default | Purpose |
+| --- | --- | --- |
 | `CHECK_DEVICES` | `alsa pulse jack` | Devices that must be present (add `decklink` for DeckLink builds) |
 | `CHECK_PROTOCOLS` | `srt dtls rist` | Protocols that must be present |
 | `CHECK_MUXERS` | `whip` | Muxers that must be present |
-| `CHECK_HWACCELS` | `vulkan` | Hardware acceleration methods that must be present |
 | `CHECK_ENCODERS` | `libx264 libx265 libsvtav1 libaom-av1 libfdk_aac libfdk_xhe_aac libopus libvpx-vp9` | Encoders that must be present |
+| `CHECK_HWACCELS` | `vulkan` | Hardware acceleration methods that must be present |
 | `CHECK_FILTERS` | `scale_vulkan overlay_vulkan avgblur_vulkan gblur_vulkan` | Filters that must be present |
 
 Example:
